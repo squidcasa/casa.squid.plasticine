@@ -362,7 +362,9 @@
 
 (def ^:dynamic *bind-set* #{})
 
-(defn bind> [src src-path dest dest-path]
+(defn bind>
+  "One-way data binding between (subpaths of) two atoms"
+  [src src-path dest dest-path]
   (let [dest-vec [dest dest-path]]
     (add-watch src [:bind> src-path dest dest-path]
                (fn [k r o n]
@@ -374,15 +376,29 @@
                            (swap! dest assoc-in dest-path new-val)
                            (reset! dest new-val))))))))))
 
-(defn bind<> [src src-path dest dest-path]
+(defn bind<>
+  "Two-way data binding between (subpaths of) two atoms"
+  [src src-path dest dest-path]
   (bind> src src-path dest dest-path)
   (bind> dest dest-path src src-path))
 
-(defn unbind [src src-path dest dest-path]
+(defn unbind
+  "Remove [[bind>]] or [[bind<>]] bindings"
+  [src src-path dest dest-path]
   (remove-watch [:bind> src src-path dest dest-path])
   (remove-watch [:bind> dest dest-path src src-path]))
 
-(defn hslider [{:keys [min value model on-change] :as flags}]
+(defn hslider
+  "Horizontal slider
+  - `:min` / `:max` Slider range. `:min` defaults to 0.
+  - `:step` Optional step value, values are rounded to multiples of `:step`
+  - `:value` / `:model` Initial value, or atom that should act as model
+  - `:format` Function for what to show on the slider, receives current value, default [[str]]
+  - `:on-change` Change callback, receives value
+  - `:height` Height (width) of the slider
+  - `:bar-margin` How much the bar is inset
+  - `:bar` / `:background` / `:text` Style maps for the three parts of the sliders"
+  [{:keys [min value model on-change] :as flags}]
   (let [value (or (when model @model) min value 0)
         slider (atom (assoc (merge hslider-defaults flags)
                             :value value

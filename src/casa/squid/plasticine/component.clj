@@ -87,3 +87,6 @@
       (when (and (<= cx x (+ cx cw))
                  (<= cy y (+ cy ch)))
         (dispatch-mouse-event c e)))))
+
+(defn add! [component child]
+  (swap! component update :children (fnil conj []) child))

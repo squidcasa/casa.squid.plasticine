@@ -7,7 +7,7 @@
    [quil.applet :as ap]
    [quil.core :as q]))
 
-(import-publics
+(util/import-publics
  *ns*
  '[casa.squid.plasticine.component
    casa.squid.plasticine.container

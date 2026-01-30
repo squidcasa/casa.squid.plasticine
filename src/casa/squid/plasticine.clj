@@ -15,7 +15,8 @@
    casa.squid.plasticine.object
    casa.squid.plasticine.select-list
    casa.squid.plasticine.sliders
-   casa.squid.plasticine.text])
+   casa.squid.plasticine.text
+   casa.squid.plasticine.grid])
 
 (def ^:dynamic *root* nil)
 
@@ -58,7 +59,6 @@
                            (when (= (char 27) (.-key (ap/current-applet)))
                              (set! (.-key (ap/current-applet)) (char 0))))
          :key-released   #(c/-key-released (:focused (meta @root)))
-         :key-typed      #(c/-key-typed (:focused (meta @root)))
          :key-typed      #(c/-key-typed (:focused (meta @root)))
          :mouse-entered  #(mouse-event-handler @root :mouse-entered)
          :mouse-exited   #(mouse-event-handler @root :mouse-exited)

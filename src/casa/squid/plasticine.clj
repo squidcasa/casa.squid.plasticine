@@ -13,6 +13,7 @@
    casa.squid.plasticine.container
    casa.squid.plasticine.draw
    casa.squid.plasticine.object
+   casa.squid.plasticine.rotary
    casa.squid.plasticine.select-list
    casa.squid.plasticine.sliders
    casa.squid.plasticine.text

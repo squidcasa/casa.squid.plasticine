@@ -50,5 +50,5 @@
 (defn unbind
   "Remove [[bind>]] or [[bind<>]] bindings"
   [src src-path dest dest-path]
-  (remove-watch [:bind> src src-path dest dest-path])
-  (remove-watch [:bind> dest dest-path src src-path]))
+  (remove-watch src [:bind> src src-path dest dest-path])
+  (remove-watch dest [:bind> dest dest-path src src-path]))

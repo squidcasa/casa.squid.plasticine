@@ -9,7 +9,7 @@
    [casa.squid.plasticine.object :as o]
    [quil.core :as q]))
 
-(defn rotary-draw [{:keys [min max value size background notch] 
+(defn rotary-draw [{:keys [min max value size background notch]
                     :or {min 0 max 100}} x y w h]
   (let [center-x (+ x (/ w 2))
         center-y (+ y (/ h 2))
@@ -21,17 +21,19 @@
         notch-length (* radius 0.7)
         notch-x (+ center-x (* notch-length (q/cos (q/radians angle))))
         notch-y (+ center-y (* notch-length (q/sin (q/radians angle))))]
-    
+
     ;; Draw background circle
     (d/with-props background
       (q/ellipse center-x center-y size size))
-    
+
     ;; Draw notch/indicator
     (d/with-props notch
       (q/line center-x center-y notch-x notch-y))))
 
-(defn rotary-size [c]
-  [(:size c) (:size c)])
+(defn rotary-layout-size [{:keys [size]} [min-width max-width min-height max-height]]
+  (let [size (or size 50)]
+    [(min (max size min-width) max-width)
+     (min (max size min-height) max-height)]))
 
 (defn rotary-mouse-pressed [c {:keys [x y]}]
   (swap! c
@@ -48,7 +50,7 @@
                    max-dim (clojure.core/max cw ch)
                    value-step (/ range-size (clojure.core/max max-dim 1))  ; Avoid division by zero
                    new-value (clojure.core/max min (clojure.core/min max-size (+ value (* delta value-step))))]
-               (assoc cv 
+               (assoc cv
                       :value new-value
                       :prev-x x
                       :prev-y y))
@@ -69,7 +71,7 @@
                    max-dim (clojure.core/max cw ch)
                    value-step (/ range-size (clojure.core/max max-dim 1))  ; Avoid division by zero
                    new-value (clojure.core/max min (clojure.core/min max-size (+ value (* delta value-step))))]
-               (assoc cv 
+               (assoc cv
                       :value new-value
                       :prev-x x
                       :prev-y y))
@@ -81,7 +83,7 @@
 
 (def rotary-meta
   {:-draw          #'rotary-draw
-   :-pref-size     #'rotary-size
+   :-layout-size   #'rotary-layout-size
    :-mouse-pressed #'rotary-mouse-pressed
    :-mouse-dragged #'rotary-mouse-dragged
    :-cleanup       #'rotary-cleanup})

@@ -1,2 +1,7 @@
-{:paths ["src"]
- :deps  {quil/quil {:mvn/version "4.3.1563"}}}
+{:paths ["src" "test"]
+ :deps  {quil/quil {:mvn/version "4.3.1563"}
+         lambdaisland/kaocha {:mvn/version "1.91.1392"}}
+ :aliases
+ {:test
+  {:extra-paths ["test"]
+   :extra-deps {lambdaisland/kaocha {:mvn/version "1.91.1392"}}}}}

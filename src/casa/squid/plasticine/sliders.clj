@@ -1,8 +1,10 @@
 (ns casa.squid.plasticine.sliders
   "Slider components"
   (:require
+   [casa.squid.plasticine.component :as c]
    [casa.squid.plasticine.draw :as d]
    [casa.squid.plasticine.object :as o]
+   [casa.squid.plasticine.util :as u]
    [quil.core :as q]))
 
 (defn hslider-draw [{:keys [min max step value height bar bar-margin background text format]} x y w h]
@@ -37,11 +39,17 @@
     (q/text (format value) 0 (/ (d/prop :text-size) 3))
     (q/pop-matrix)))
 
-(defn hslider-size [c]
-  [200 (:height c)])
+(defn hslider-layout-size [{:keys [width height] :as this} [min-width max-width min-height max-height]]
+  (let [preferred-width (u/clamp 50 (or width 200) 200)
+        preferred-height (u/clamp 5 (or height 20) 20)]
+    [(min (max preferred-width min-width) max-width)
+     (min (max preferred-height min-height) max-height)]))
 
-(defn vslider-size [c]
-  [(:width c) 200])
+(defn vslider-layout-size [{:keys [width height] :as this} [min-width max-width min-height max-height]]
+  (let [preferred-width (u/clamp 5 (or width 20) 20)
+        preferred-height (u/clamp 50 (or height 200) 200)]
+    [(min (max preferred-width min-width) max-width)
+     (min (max preferred-height min-height) max-height)]))
 
 (defn hslider-mouse-pressed [c {:keys [x y]}]
   (swap! c
@@ -60,7 +68,8 @@
                        (/ (- ch (- y cy)) ch)))))))
 
 (defn hslider-cleanup [this]
-  (o/unbind this [:value] (:model @this) []))
+  (when-let [model (:model @this)]
+    (o/unbind this [:value] (:model @this) [])))
 
 (defn vslider-cleanup [this]
   (when-let [model (:model @this)]
@@ -68,14 +77,14 @@
 
 (def hslider-meta
   {:-draw          #'hslider-draw
-   :-pref-size     #'hslider-size
+   :-layout-size   #'hslider-layout-size
    :-mouse-pressed #'hslider-mouse-pressed
    :-mouse-dragged #'hslider-mouse-pressed
    :-cleanup       #'hslider-cleanup})
 
 (def vslider-meta
   {:-draw          #'vslider-draw
-   :-pref-size     #'vslider-size
+   :-layout-size   #'vslider-layout-size
    :-mouse-pressed #'vslider-mouse-pressed
    :-mouse-dragged #'vslider-mouse-pressed
    :-cleanup       #'vslider-cleanup})

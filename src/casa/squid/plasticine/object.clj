@@ -18,9 +18,13 @@
                     {:state @c
                      :meta (meta c)}))))
 
-(defmacro defdispatch [n args & default]
-  (let [kw (keyword n)]
-    `(defn ~n [~@args]
+(defmacro defdispatch [n & args]
+  (let [kw (keyword n)
+        [docstring args] (if (string? (first args))
+                           [(first args) (rest args)]
+                           [nil args])
+        [args & default] args]
+    `(defn ~n ~@(when docstring [docstring]) [~@args]
        (if-let [f# (get (meta ~(first args)) ~kw)]
          (f# ~@args)
          (do ~@default)))))

@@ -21,11 +21,40 @@
 ;; Interface
 
 (o/defdispatch -draw [this x y w h])
-(o/defdispatch -min-size [this] [0 0])
-(o/defdispatch -max-size [this] [Long/MAX_VALUE Long/MAX_VALUE])
-(o/defdispatch -pref-size [this] [100 100])
+
+;; Constraint-based layout interface
+(o/defdispatch -layout-size
+  "Calculate size for this component given constraints [min-width max-width min-height max-height].
+   Returns [width height] that fits within constraints.
+
+   Components may have :flex-width and/or :flex-height attributes (default 0) to indicate
+   how they should grow when extra space is available."
+  [this constraints]
+  [100 100])
+
+;; Intrinsic sizing methods
+(o/defdispatch -min-intrinsic-width
+  "Absolute minimum width this child needs to not break."
+  [this height] 0)
+
+(o/defdispatch -max-intrinsic-width
+  "Ideal width for this child."
+  [this height] Long/MAX_VALUE)
+
+(o/defdispatch -min-intrinsic-height
+  "Absolute minimum height this child needs to not break."
+  [this width] 0)
+
+(o/defdispatch -max-intrinsic-height
+  "Ideal height for this child."
+  [this width] Long/MAX_VALUE)
+
+;; Legacy methods (deprecated)
+
 (o/defdispatch -cleanup [this]
-  (doseq [c (if-let [c (:child @this)] [c] (:children @this))]
+  (doseq [c (if-let [c (:child @this)]
+              [c]
+              (:children @this))]
     (-cleanup c)))
 
 (o/defdispatch -key-pressed [this]
@@ -55,18 +84,47 @@
     (when (and (:focusable? (meta c))
                (not (:focused (meta root))))
       (alter-meta! root assoc :focused c)))
+  (swap! c assoc :outer-bounds [x y w h])
   (let [[x y w h] (if-let [m (:margin @c)]
                     [(+ x m) (+ y m) (- w m m) (- h m m)]
                     [x y w h])]
+    (swap! c assoc :bounds [x y w h])
     (binding [*drawing-component* c]
-      (delegate c -draw x y w h))
-    (swap! c assoc :bounds [x y w h]))
-  (swap! c assoc :outer-bounds [x y w h])
+      (delegate c -draw x y w h)))
   (add-watch c ::rerender (fn [k r o n] (on-model-changed c o n))))
 
-(defn min-size [c] (delegate c -min-size))
-(defn max-size [c] (delegate c -max-size))
-(defn pref-size [c] (delegate c -pref-size))
+
+
+;; Flex attribute helpers
+(defn flex-width [c]
+  (let [m (if (instance? clojure.lang.Atom c) @c c)]
+    (or (:flex-width m) (:flex m) 0)))
+
+(defn flex-height [c]
+  (let [m (if (instance? clojure.lang.Atom c) @c c)]
+    (or (:flex-height m) (:flex m) 0)))
+
+;; Constraint-based layout functions
+(defn layout-size [c constraints]
+  (delegate c -layout-size constraints))
+
+(defn min-intrinsic-width [c height]
+  (delegate c -min-intrinsic-width height))
+
+(defn max-intrinsic-width [c height]
+  (delegate c -max-intrinsic-width height))
+
+(defn min-intrinsic-height [c width]
+  (delegate c -min-intrinsic-height width))
+
+(defn max-intrinsic-height [c width]
+  (delegate c -max-intrinsic-height width))
+
+(defn width [c]
+  (or (:width c) (nth (:bounds c) 2)))
+
+(defn height [c]
+  (or (:height c) (nth (:bounds c) 3)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Helpers

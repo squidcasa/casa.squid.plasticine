@@ -20,9 +20,7 @@
 
 (def select-list-meta
   {:-draw        #'select-list-draw
-   :-min-size    #'container/container-size
-   :-pref-size   #'container/container-size
-   :-max-size    #'container/container-size
+   :-layout-size #'container/stack-layout-size
    :focusable?   true
    :key-pressed-map
    {:down

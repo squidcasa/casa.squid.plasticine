@@ -36,17 +36,17 @@
         weight-specs (remove :auto specs-seq)
         weights (map #(or (:weight %) 1) weight-specs)
         total-weight (apply + weights)
-        ;; For auto specs, get preferred sizes from children
-        auto-sizes (when (pos? auto-count)
-                     (map-indexed
-                       (fn [idx spec]
-                         (if (:auto spec)
-                           (let [child (nth children idx nil)]
-                             (if (and child (fn? c/pref-size))
-                               (nth (c/pref-size child) (if (= axis :cols) 0 1) 50)
-                               50))
-                           nil))
-                       specs-seq))
+          ;; For auto specs, get preferred sizes from children
+          auto-sizes (when (pos? auto-count)
+                       (map-indexed
+                         (fn [idx spec]
+                           (if (:auto spec)
+                             (let [child (nth children idx nil)]
+                               (if child
+                                 (nth (c/layout-size child [0 Long/MAX_VALUE 0 Long/MAX_VALUE]) (if (= axis :cols) 0 1) 50)
+                                 50))
+                             nil))
+                         specs-seq))
         auto-total (if auto-sizes (apply + (remove nil? auto-sizes)) 0)
         available-space (clojure.core/max 0 (- total-size auto-total))
         weight-unit (if (and (pos? total-weight) (pos? available-space))
@@ -141,10 +141,10 @@
           children-by-row (clojure.core/group-by :row grid-positions)
           ;; For min size, sum the max min size in each column/row
           col-min-sizes (for [col-idx (range col-count)]
-                          (apply clojure.core/max 0 (map #(nth (c/min-size (:child %)) 0 0)
+                          (apply clojure.core/max 0 (map #(nth (c/layout-size (:child %) [0 Long/MAX_VALUE 0 Long/MAX_VALUE]) 0)
                                            (get children-by-col col-idx []))))
           row-min-sizes (for [row-idx (range row-count)]
-                          (apply clojure.core/max 0 (map #(nth (c/min-size (:child %)) 1 0)
+                          (apply clojure.core/max 0 (map #(nth (c/layout-size (:child %) [0 Long/MAX_VALUE 0 Long/MAX_VALUE]) 1)
                                            (get children-by-row row-idx []))))
           total-min-width (apply + col-min-sizes)
           total-min-height (apply + row-min-sizes)]
@@ -175,18 +175,18 @@
           children-by-row (clojure.core/group-by :row grid-positions)
           ;; For preferred size, sum the max preferred size in each column/row
           col-pref-sizes (for [col-idx (range col-count)]
-                           (apply clojure.core/max 0 (map #(nth (c/pref-size (:child %)) 0 100)
+                           (apply clojure.core/max 0 (map #(nth (c/layout-size (:child %) [0 Long/MAX_VALUE 0 Long/MAX_VALUE]) 0)
                                             (get children-by-col col-idx []))))
           row-pref-sizes (for [row-idx (range row-count)]
-                           (apply clojure.core/max 0 (map #(nth (c/pref-size (:child %)) 1 100)
+                           (apply clojure.core/max 0 (map #(nth (c/layout-size (:child %) [0 Long/MAX_VALUE 0 Long/MAX_VALUE]) 1)
                                             (get children-by-row row-idx []))))
           total-pref-width (apply + col-pref-sizes)
           total-pref-height (apply + row-pref-sizes)]
       [total-pref-width total-pref-height])))
 
-(defn grid-max-size
-  "Calculate maximum size for the grid."
-  [{:keys [rows cols children] :as this}]
+(defn grid-layout-size
+  "Calculate size for the grid given constraints."
+  [{:keys [rows cols children bounds] :as this} [min-width max-width min-height max-height]]
   (if-let [bounds (:bounds this)]
     bounds
     (let [col-count (cond
@@ -199,36 +199,39 @@
                       (vector? rows) (clojure.core/count rows)
                       (nil? rows)    (clojure.core/max 1 (int (Math/ceil (/ (clojure.core/count children) col-count))))
                       :else          (clojure.core/max 1 (int (Math/ceil (/ (clojure.core/count children) col-count)))))
-          ;; For max size, we typically return large values unless there are fixed constraints
-          ;; If rows/cols have max constraints, we respect those
-          col-specs (normalize-dimension cols col-count)
-          row-specs (normalize-dimension rows row-count)
-          has-max-constraints (or (clojure.core/some :max col-specs) (clojure.core/some :max row-specs))]
-      (if has-max-constraints
-        ;; If there are max constraints, calculate based on those
-        (let [grid-positions (for [child-idx (range (clojure.core/count children))]
-                               {:child (nth children child-idx)
-                                :col (mod child-idx col-count)
-                                :row (int (Math/floor (/ child-idx col-count)))})
-              children-by-col (clojure.core/group-by :col grid-positions)
-              children-by-row (clojure.core/group-by :row grid-positions)
-              col-max-sizes (for [col-idx (range col-count)]
-                              (apply clojure.core/max 1 (map #(nth (c/max-size (:child %)) 0 Long/MAX_VALUE)
-                                               (get children-by-col col-idx []))))
-              row-max-sizes (for [row-idx (range row-count)]
-                              (apply clojure.core/max 1 (map #(nth (c/max-size (:child %)) 1 Long/MAX_VALUE)
-                                               (get children-by-row row-idx []))))
-              total-max-width (apply + col-max-sizes)
-              total-max-height (apply + row-max-sizes)]
-          [total-max-width total-max-height])
-        ;; Otherwise return large values
-        [Long/MAX_VALUE Long/MAX_VALUE]))))
+          
+          ;; Calculate intrinsic sizes for all children
+          child-intrinsic-sizes (map #(c/layout-size % [0 Long/MAX_VALUE 0 Long/MAX_VALUE]) children)
+          
+          ;; Organize children into grid positions
+          grid-positions (for [child-idx (range (clojure.core/count children))]
+                           {:child (nth children child-idx)
+                            :col (mod child-idx col-count)
+                            :row (int (Math/floor (/ child-idx col-count)))})
+          
+          ;; Group children by column and row
+          children-by-col (clojure.core/group-by :col grid-positions)
+          children-by-row (clojure.core/group-by :row grid-positions)
+          
+          ;; Calculate sizes for each column and row
+          col-sizes (for [col-idx (range col-count)]
+                       (apply clojure.core/max 0 (map #(nth (c/layout-size (:child %) [min-width max-width min-height max-height]) 0)
+                                        (get children-by-col col-idx []))))
+          row-sizes (for [row-idx (range row-count)]
+                       (apply clojure.core/max 0 (map #(nth (c/layout-size (:child %) [min-width max-width min-height max-height]) 1)
+                                        (get children-by-row row-idx []))))
+          
+          total-width (apply + col-sizes)
+          total-height (apply + row-sizes)
+          
+          ;; Apply constraints
+          final-width (min (max total-width min-width) max-width)
+          final-height (min (max total-height min-height) max-height)]
+      [final-width final-height])))
 
 (def grid-meta
   {:-draw        #'grid-draw
-   :-min-size    #'grid-min-size
-   :-pref-size   #'grid-pref-size
-   :-max-size    #'grid-max-size
+   :-layout-size #'grid-layout-size
    :-mouse-event #'c/forward-mouse-event})
 
 (defn grid
@@ -239,7 +242,7 @@
   :rows - Row specifications (number, vector, or :auto)
   :children - Child components to arrange in the grid"
   [& {:as opts}]
-  (atom (merge {:cols 1 :rows 1 :children []} opts) :meta grid-meta))
+  (atom (merge {:cols nil :rows nil :children []} opts) :meta grid-meta))
 
 (comment
   ;; cols and rows, with maps as specs
